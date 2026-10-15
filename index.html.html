@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Sopa de letras progresiva con cuadrícula 15x15.">
+  <title>Sopa de Letras Progresiva</title>
+  <style>
+    :root {
+      --grid-size: 15;
+      --cell-gap: 2px;
+      --page-bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #172033;
+      --muted: #475569;
+      --border: #cbd5e1;
+      --grid-bg: #94a3b8;
+      --cell-bg: #f1f5f9;
+      --accent: #1d4ed8;
+      --radius: 12px;
+      --shadow: 0 8px 28px rgb(15 23 42 / 8%);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      color: var(--text);
+      background: var(--page-bg);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .app {
+      width: min(100%, 900px);
+      margin: 0 auto;
+    }
+
+    .header { text-align: center; margin-bottom: 24px; }
+    h1 { margin: 0 0 8px; font-size: clamp(1.6rem, 4vw, 2.25rem); }
+    .subtitle { margin: 0; color: var(--muted); }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(220px, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .panel {
+      min-width: 0;
+      padding: 18px;
+      background: var(--surface);
+      border: 1px solid #e2e8f0;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(15, minmax(0, 1fr));
+      grid-template-rows: repeat(15, minmax(0, 1fr));
+      gap: var(--cell-gap);
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      padding: var(--cell-gap);
+      background: var(--grid-bg);
+      border: 1px solid var(--grid-bg);
+      border-radius: 6px;
+    }
+
+    .cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
+      min-height: 0;
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid rgb(23 32 51 / 14%);
+      border-radius: 2px;
+      background: var(--cell-bg);
+      color: var(--text);
+      font: 700 clamp(7px, 1.65vw, 16px)/1 system-ui, sans-serif;
+      user-select: none;
+    }
+
+    .cell.word-cell {
+      animation: pulse 1.5s infinite ease-in-out;
+      transform-origin: center;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.82; transform: scale(0.94); }
+    }
+
+    .section-title { margin: 0 0 12px; font-size: 1.1rem; }
+    .word-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .word-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      font-size: 0.85rem;
+      overflow-wrap: anywhere;
+    }
+
+    .swatch {
+      flex: 0 0 16px;
+      width: 16px;
+      height: 16px;
+      border: 1px solid rgb(23 32 51 / 25%);
+      border-radius: 4px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    button {
+      min-height: 40px;
+      padding: 9px 14px;
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      background: var(--accent);
+      color: white;
+      font: inherit;
+      font-weight: 650;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: white;
+      color: var(--accent);
+    }
+
+    button:focus-visible {
+      outline: 3px solid #93c5fd;
+      outline-offset: 3px;
+    }
+
+    .status {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .instructions {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 680px) {
+      body { padding: 12px; }
+      .layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+      .panel { padding: 12px; }
+      .word-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .cell { font-size: clamp(7px, 2.2vw, 14px); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <h1>Sopa de Letras Progresiva</h1>
+      <p class="subtitle">Nivel final · cuadrícula de 15 × 15</p>
+    </header>
+
+    <div class="layout">
+      <section class="panel" aria-labelledby="grid-heading">
+        <h2 id="grid-heading" class="section-title">Cuadrícula</h2>
+        <div id="word-grid" class="grid" role="grid"
+             aria-label="Sopa de letras de 15 filas por 15 columnas"></div>
+        <div class="controls">
+          <button id="new-game" type="button">Generar nueva sopa</button>
+          <button id="toggle-pulse" class="secondary" type="button"
+                  aria-pressed="true">Pausar animación</button>
+        </div>
+        <p id="game-status" class="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <aside class="panel" aria-labelledby="words-heading">
+        <h2 id="words-heading" class="section-title">Palabras incluidas</h2>
+        <ul id="word-legend" class="word-list"></ul>
+        <p class="instructions">
+          Cada palabra aparece en una de las ocho direcciones. Las letras
+          compartidas solo se cruzan cuando coinciden. Los colores identifican
+          cada palabra y las celdas con palabras tienen un pulso suave.
+        </p>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    'use strict';
+
+    (() => {
+      const GRID_SIZE = 15;
+      const MAX_ATTEMPTS_PER_WORD = 2500;
+      const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+      const WORDS = [
+        'ALGORITMO', 'MATRIZ', 'VARIABLE', 'FUNCION', 'CODIGO',
+        'VECTOR', 'INTERFAZ', 'DESARROLLO', 'ANIMACION', 'NAVEGADOR'
+      ];
+
+      // Colores pastel con texto oscuro para favorecer el contraste.
+      const WORD_COLORS = [
+        '#A7D8F0', '#F6C6C6', '#C8E6C9', '#D9C7F5', '#FFE0A3',
+        '#A7E8E1', '#F5B8D2', '#D6DFA0', '#C5D0FF', '#F5CBA7'
+      ];
+
+      const DIRECTIONS = [
+        { dr: 0, dc: 1 },   // horizontal derecha
+        { dr: 0, dc: -1 },  // horizontal izquierda
+        { dr: 1, dc: 0 },   // vertical abajo
+        { dr: -1, dc: 0 },  // vertical arriba
+        { dr: 1, dc: 1 },   // diagonal abajo-derecha
+        { dr: 1, dc: -1 },  // diagonal abajo-izquierda
+        { dr: -1, dc: 1 },  // diagonal arriba-derecha
+        { dr: -1, dc: -1 }  // diagonal arriba-izquierda
+      ];
+
+      const gridElement = document.getElementById('word-grid');
+      const legendElement = document.getElementById('word-legend');
+      const statusElement = document.getElementById('game-status');
+      const newGameButton = document.getElementById('new-game');
+      const togglePulseButton = document.getElementById('toggle-pulse');
+
+      let pulseEnabled = true;
+
+      function createMatrix() {
+        return Array.from({ length: GRID_SIZE }, () =>
+          Array(GRID_SIZE).fill(null)
+        );
+      }
+
+      function isValidCoordinate(row, col) {
+        return row >= 0 && row < GRID_SIZE && col >= 0 && col < GRID_SIZE;
+      }
+
+      function fitsGrid(row, col, length, direction) {
+        const endRow = row + (length - 1) * direction.dr;
+        const endCol = col + (length - 1) * direction.dc;
+        return isValidCoordinate(row, col) && isValidCoordinate(endRow, endCol);
+      }
+
+      function canPlaceWord(matrix, word, row, col, direction) {
+        for (let i = 0; i < word.length; i += 1) {
+          const r = row + i * direction.dr;
+          const c = col + i * direction.dc;
+          if (!isValidCoordinate(r, c)) return false;
+
+          const current = matrix[r][c];
+          if (current !== null && current !== word[i]) return false;
+        }
+        return true;
+      }
+
+      function tryPlaceWord(matrix, word, maxAttempts = MAX_ATTEMPTS_PER_WORD) {
+        const normalized = word.trim().toUpperCase();
+
+        if (!normalized || !/^[A-Z]+$/.test(normalized)) {
+          return { success: false, word: normalized, reason: 'Palabra no válida.' };
+        }
+        if (normalized.length > GRID_SIZE) {
+          return { success: false, word: normalized, reason: 'La palabra excede la cuadrícula.' };
+        }
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+          const row = Math.floor(Math.random() * GRID_SIZE);
+          const col = Math.floor(Math.random() * GRID_SIZE);
+          const direction = DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)];
+
+          if (!fitsGrid(row, col, normalized.length, direction)) continue;
+          if (!canPlaceWord(matrix, normalized, row, col, direction)) continue;
+
+          // Escribe únicamente después de validar la palabra completa.
+          for (let i = 0; i < normalized.length; i += 1) {
+            matrix[row + i * direction.dr][col + i * direction.dc] = normalized[i];
+          }
+
+          return {
+            success: true,
+            word: normalized,
+            start: { row, col },
+            end: {
+              row: row + (normalized.length - 1) * direction.dr,
+              col: col + (normalized.length - 1) * direction.dc
+            },
+            direction: { ...direction },
+            attempts: attempt
+          };
+        }
+
+        return {
+          success: false,
+          word: normalized,
+          attempts: maxAttempts,
+          reason: 'No se encontró una posición disponible.'
+        };
+      }
+
+      function fillEmptyCells(matrix) {
+        for (let row = 0; row < GRID_SIZE; row += 1) {
+          for (let col = 0; col < GRID_SIZE; col += 1) {
+            if (matrix[row][col] === null) {
+              matrix[row][col] = ALPHABET[
+                Math.floor(Math.random() * ALPHABET.length)
+              ];
+            }
+          }
+        }
+      }
+
+      function buildWordMap(results) {
+        const map = new Map();
+
+        results.forEach((result) => {
+          if (!result.success) return;
+          const wordIndex = WORDS.indexOf(result.word);
+          if (wordIndex < 0) return;
+
+          for (let i = 0; i < result.word.length; i += 1) {
+            const row = result.start.row + i * result.direction.dr;
+            const col = result.start.col + i * result.direction.dc;
+            const key = `${row},${col}`;
+
+            if (!map.has(key)) map.set(key, []);
+            const memberships = map.get(key);
+
+            if (!memberships.some((entry) => entry.word === result.word)) {
+              memberships.push({
+                word: result.word,
+                color: WORD_COLORS[wordIndex]
+              });
+            }
+          }
+        });
+
+        return map;
+      }
+
+      function cellBackground(memberships) {
+        if (memberships.length === 0) return 'var(--cell-bg)';
+        if (memberships.length === 1) return memberships[0].color;
+
+        // Los cruces compatibles muestran todos los colores por segmentos.
+        const segmentSize = 100 / memberships.length;
+        const stops = memberships.map((entry, index) => {
+          const start = index * segmentSize;
+          const end = (index + 1) * segmentSize;
+          return `${entry.color} ${start}% ${end}%`;
+        });
+        return `conic-gradient(${stops.join(', ')})`;
+      }
+
+      function renderLegend(results) {
+        legendElement.replaceChildren();
+        const placedWords = new Set(
+          results.filter((result) => result.success).map((result) => result.word)
+        );
+
+        WORDS.forEach((word, index) => {
+          const item = document.createElement('li');
+          item.className = 'word-item';
+
+          const swatch = document.createElement('span');
+          swatch.className = 'swatch';
+          swatch.style.backgroundColor = WORD_COLORS[index];
+          swatch.setAttribute('aria-hidden', 'true');
+
+          const label = document.createElement('span');
+          label.textContent = placedWords.has(word) ? word : `${word} (no ubicada)`;
+
+          item.append(swatch, label);
+          legendElement.appendChild(item);
+        });
+      }
+
+      function renderGrid(matrix, results) {
+        const wordMap = buildWordMap(results);
+        const fragment = document.createDocumentFragment();
+
+        for (let row = 0; row < GRID_SIZE; row += 1) {
+          for (let col = 0; col < GRID_SIZE; col += 1) {
+            const cell = document.createElement('div');
+            const memberships = wordMap.get(`${row},${col}`) || [];
+
+            cell.className = 'cell';
+            cell.setAttribute('role', 'gridcell');
+            cell.dataset.row = String(row);
+            cell.dataset.col = String(col);
+            cell.textContent = matrix[row][col] ?? '';
+            cell.style.background = cellBackground(memberships);
+
+            if (memberships.length > 0) {
+              cell.classList.add('word-cell');
+              cell.dataset.words = memberships.map((entry) => entry.word).join(',');
+              cell.title = `Fila ${row + 1}, columna ${col + 1}: ${
+                memberships.map((entry) => entry.word).join(' / ')
+              }`;
+            } else {
+              cell.title = `Fila ${row + 1}, columna ${col + 1}`;
+            }
+
+            fragment.appendChild(cell);
+          }
+        }
+
+        gridElement.replaceChildren(fragment);
+        renderLegend(results);
+
+        const placed = results.filter((result) => result.success).length;
+        statusElement.textContent =
+          `${placed} de ${WORDS.length} palabras ubicadas · ${GRID_SIZE * GRID_SIZE} celdas renderizadas.`;
+
+        gridElement.querySelectorAll('.word-cell').forEach((cell) => {
+          cell.style.animationPlayState = pulseEnabled ? 'running' : 'paused';
+        });
+      }
+
+      function startNewGame() {
+        const matrix = createMatrix();
+        const results = WORDS.map((word) =>
+          tryPlaceWord(matrix, word, MAX_ATTEMPTS_PER_WORD)
+        );
+
+        fillEmptyCells(matrix);
+        renderGrid(matrix, results);
+      }
+
+      newGameButton.addEventListener('click', startNewGame);
+
+      togglePulseButton.addEventListener('click', () => {
+        pulseEnabled = !pulseEnabled;
+        gridElement.querySelectorAll('.word-cell').forEach((cell) => {
+          cell.style.animationPlayState = pulseEnabled ? 'running' : 'paused';
+        });
+        togglePulseButton.textContent = pulseEnabled
+          ? 'Pausar animación'
+          : 'Reanudar animación';
+        togglePulseButton.setAttribute('aria-pressed', String(pulseEnabled));
+      });
+
+      // Inicialización automática al abrir index.html.
+      startNewGame();
+    })();
+  </script>
+</body>
+</html>
